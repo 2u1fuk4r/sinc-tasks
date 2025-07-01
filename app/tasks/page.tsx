@@ -8,7 +8,6 @@ import {
   Droppable,
   Draggable,
   DropResult,
-  ResponderProvided,
 } from 'react-beautiful-dnd'
 
 type Task = {
@@ -36,7 +35,7 @@ export default function TasksPage() {
         fetchTasks()
       }
     })
-  }, [])
+  }, [router])
 
   async function fetchTasks() {
     setLoading(true)
@@ -64,7 +63,7 @@ export default function TasksPage() {
     else fetchTasks()
   }
 
-  const onDragEnd = (result: DropResult, _provided: ResponderProvided) => {
+  const onDragEnd = (result: DropResult) => {
     const { destination, source, draggableId } = result
     if (!destination) return
     if (destination.droppableId !== source.droppableId) {

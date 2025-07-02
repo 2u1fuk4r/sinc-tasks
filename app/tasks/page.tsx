@@ -10,7 +10,10 @@ import {
   DropResult,
 } from 'react-beautiful-dnd'
 
-type Task = {
+import Image from 'next/image'
+
+// Yeni task tipi
+interface Task {
   id: string
   task_name: string
   status: 'Todo' | 'Pending' | 'Done'
@@ -26,12 +29,28 @@ export default function TasksPage() {
   const [error, setError] = useState('')
   const [isAdding, setIsAdding] = useState<Task['status'] | null>(null)
   const [newTaskName, setNewTaskName] = useState('')
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
+  const [editTaskName, setEditTaskName] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(async ({ data }) => {
       if (!data.session) {
         router.push('/login')
       } else {
+        // Kullanıcıyı al
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          // Profil tablosundan avatar url'sini çek
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('avatar_url')
+            .eq('id', user.id)
+            .single()
+          if (profile && profile.avatar_url) {
+            setAvatarUrl(profile.avatar_url)
+          }
+        }
         fetchTasks()
       }
     })
@@ -40,9 +59,22 @@ export default function TasksPage() {
   async function fetchTasks() {
     setLoading(true)
     setError('')
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      setError('User Not Found.')
+      setLoading(false)
+      return
+    }
+
     const { data, error } = await supabase
-      .from<Task>('tasks')
+      .from('tasks')
       .select('*')
+      .eq('user_id', user.id)
       .order('created_at', { ascending: true })
 
     if (error) {
@@ -81,7 +113,7 @@ export default function TasksPage() {
     } = await supabase.auth.getUser()
 
     if (!user) {
-      setError('Kullanıcı bulunamadı.')
+      setError('User Not Found.')
       setLoading(false)
       return
     }
@@ -104,14 +136,61 @@ export default function TasksPage() {
     setLoading(false)
   }
 
+  async function editTask(taskId: string, newName: string) {
+    setLoading(true)
+    setError('')
+    const { error } = await supabase
+      .from('tasks')
+      .update({ task_name: newName })
+      .eq('id', taskId)
+    if (error) {
+      setError(error.message)
+    } else {
+      setEditingTaskId(null)
+      setEditTaskName('')
+      fetchTasks()
+    }
+    setLoading(false)
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
+
   return (
     <div className="overflow-x-auto">
+      {/* Navbar */}
+      <div className="flex justify-between items-center p-4 bg-gray-200">
+        <div className="text-lg font-semibold text-black">My Tasks</div>
+        <div className="flex items-center gap-4">
+          <Image
+            src={avatarUrl || "https://lh3.googleusercontent.com/a/ACg8ocJQus3niHVnRqVa5FL5VVAqmlpxSuRwwqfxibPPJS9RVvYCX6HX=s360-c-no"}
+            alt="avatar"
+            width={40}
+            height={40}
+            className="rounded-full"
+          />
+          <button
+            onClick={handleLogout}
+            className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+          >
+            Log Out
+          </button>
+        </div>
+      </div>
+
       <div className="min-h-screen bg-gray-100 p-8 flex justify-center items-start gap-6 text-black">
         <DragDropContext onDragEnd={onDragEnd}>
           {columns.map((columnId) => {
             const columnTasks = tasks.filter((task) => task.status === columnId)
             return (
-              <Droppable droppableId={columnId} key={columnId}>
+              <Droppable
+                droppableId={columnId}
+                key={columnId}
+                isDropDisabled={false}
+                isCombineEnabled={false}
+              >
                 {(provided) => (
                   <div
                     ref={provided.innerRef}
@@ -145,7 +224,53 @@ export default function TasksPage() {
                                   : 'bg-gray-100 text-black'
                               }`}
                             >
-                              {task.task_name}
+                              {editingTaskId === task.id ? (
+                                <form
+                                  onSubmit={e => {
+                                    e.preventDefault()
+                                    editTask(task.id, editTaskName)
+                                  }}
+                                  className="flex gap-2"
+                                >
+                                  <input
+                                    type="text"
+                                    value={editTaskName}
+                                    onChange={e => setEditTaskName(e.target.value)}
+                                    className="flex-grow p-2 border rounded text-black"
+                                    autoFocus
+                                  />
+                                  <button
+                                    type="submit"
+                                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 rounded"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="bg-gray-400 hover:bg-gray-500 text-white font-bold px-3 rounded"
+                                    onClick={() => {
+                                      setEditingTaskId(null)
+                                      setEditTaskName('')
+                                    }}
+                                  >
+                                    Cancel
+                                  </button>
+                                </form>
+                              ) : (
+                                <div className="flex justify-between items-center">
+                                  <span>{task.task_name}</span>
+                                  <button
+                                    className="ml-2 text-blue-600 hover:text-blue-800 font-bold"
+                                    onClick={() => {
+                                      setEditingTaskId(task.id)
+                                      setEditTaskName(task.task_name)
+                                    }}
+                                    aria-label="Edit task"
+                                  >
+                                    Edit
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           )}
                         </Draggable>
@@ -173,7 +298,7 @@ export default function TasksPage() {
                           type="submit"
                           className="bg-green-600 hover:bg-green-700 text-white font-bold px-4 rounded"
                         >
-                          Ekle
+                          insert
                         </button>
                         <button
                           type="button"
@@ -193,7 +318,7 @@ export default function TasksPage() {
             )
           })}
         </DragDropContext>
-        {loading && <p className="text-black">Yükleniyor...</p>}
+        {loading && <p className="text-black">Loading...</p>}
         {error && <p className="text-red-600">{error}</p>}
       </div>
     </div>

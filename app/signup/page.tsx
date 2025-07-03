@@ -25,8 +25,10 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4 text-gray-900">
-      <form onSubmit={handleSignUp} className="bg-white shadow-md rounded px-8 pt-6 pb-8 w-full max-w-sm">
+    <div className="relative flex flex-col items-center justify-center min-h-screen overflow-hidden">
+      {/* Animated Gradient Background */}
+      <div className="absolute inset-0 -z-10 animate-gradient bg-gradient-to-br from-blue-400 via-purple-400 to-pink-400 blur-2xl opacity-70" />
+      <form onSubmit={handleSignUp} className="bg-white shadow-md rounded px-8 pt-6 pb-8 w-full max-w-sm relative z-10">
         <h2 className="text-2xl font-bold mb-6 text-center text-gray-900">Sign Up</h2>
 
         {error && <p className="text-red-500 mb-4">{error}</p>}
@@ -67,6 +69,17 @@ export default function SignUpPage() {
           </button>
         </p>
       </form>
+      <style jsx>{`
+        .animate-gradient {
+          background-size: 200% 200%;
+          animation: gradientMove 6s ease-in-out infinite;
+        }
+        @keyframes gradientMove {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+      `}</style>
     </div>
   )
 }

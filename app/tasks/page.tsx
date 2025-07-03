@@ -32,6 +32,7 @@ export default function TasksPage() {
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
   const [editTaskName, setEditTaskName] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -41,6 +42,7 @@ export default function TasksPage() {
         // Kullanıcıyı al
         const { data: { user } } = await supabase.auth.getUser()
         if (user) {
+          setUserEmail(user.email ?? null) // E-posta state'e kaydediliyor
           // Profil tablosundan avatar url'sini çek
           const { data: profile } = await supabase
             .from('profiles')
@@ -60,10 +62,8 @@ export default function TasksPage() {
     setLoading(true)
     setError('')
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser()
+    const { data: userData, error: userError } = await supabase.auth.getUser()
+    const user = userData?.user
 
     if (userError || !user) {
       setError('User Not Found.')
@@ -153,6 +153,18 @@ export default function TasksPage() {
     setLoading(false)
   }
 
+  async function deleteTask(taskId: string) {
+    setLoading(true)
+    setError('')
+    const { error } = await supabase.from('tasks').delete().eq('id', taskId)
+    if (error) {
+      setError(error.message)
+    } else {
+      fetchTasks()
+    }
+    setLoading(false)
+  }
+
   async function handleLogout() {
     await supabase.auth.signOut()
     router.push('/login')
@@ -164,6 +176,11 @@ export default function TasksPage() {
       <div className="flex justify-between items-center p-4 bg-gray-200">
         <div className="text-lg font-semibold text-black">My Tasks</div>
         <div className="flex items-center gap-4">
+          {userEmail && (
+            <span className="text-black font-medium">
+              {userEmail.split('@')[0]}
+            </span>
+          )}
           <Image
             src={avatarUrl || "https://lh3.googleusercontent.com/a/ACg8ocJQus3niHVnRqVa5FL5VVAqmlpxSuRwwqfxibPPJS9RVvYCX6HX=s360-c-no"}
             alt="avatar"
@@ -259,16 +276,25 @@ export default function TasksPage() {
                               ) : (
                                 <div className="flex justify-between items-center">
                                   <span>{task.task_name}</span>
-                                  <button
-                                    className="ml-2 text-blue-600 hover:text-blue-800 font-bold"
-                                    onClick={() => {
-                                      setEditingTaskId(task.id)
-                                      setEditTaskName(task.task_name)
-                                    }}
-                                    aria-label="Edit task"
-                                  >
-                                    Edit
-                                  </button>
+                                  <div className="flex gap-2">
+                                    <button
+                                      className="ml-2 text-blue-600 hover:text-blue-800 font-bold"
+                                      onClick={() => {
+                                        setEditingTaskId(task.id)
+                                        setEditTaskName(task.task_name)
+                                      }}
+                                      aria-label="Edit task"
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      className="ml-2 text-red-600 hover:text-red-800 font-bold"
+                                      onClick={() => deleteTask(task.id)}
+                                      aria-label="Delete task"
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
                                 </div>
                               )}
                             </div>
